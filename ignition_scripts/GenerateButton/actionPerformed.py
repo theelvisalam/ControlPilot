@@ -1,40 +1,74 @@
+# Ignition Vision Button – onActionPerformed event
+
 import system
 from java.lang import String
 from java.net import URL
 from java.io import BufferedReader, InputStreamReader
 
-# 1) Grab your Prompt and Preview components
-container  = event.source.parent
-promptBox  = container.getComponent("PromptArea")
-previewBox = container.getComponent("PreviewArea")
+# [1] Get components
+container   = event.source.parent
+promptBox   = container.getComponent("PromptArea")
+previewBox  = container.getComponent("PreviewArea")
 
-# 2) Read and sanitize user input
+# [2] Read and validate prompt
 prompt = promptBox.text.strip()
 if not prompt or prompt == "Type your prompt here...":
     system.gui.warningBox("Please enter a prompt first.", "ControlPilot")
 else:
     try:
-        # 3) Build JSON payload
+        # [3] Find the window root and name
+        comp = event.source
+        while getattr(comp, "getParent", None) and comp.getParent() is not None:
+            comp = comp.getParent()
+        try:
+            windowName = comp.getName()
+        except:
+            windowName = str(comp)
+
+        # [4] Collect component info
+        component     = event.source
+        componentName = component.name
+        componentType = component.__class__.__name__
+
+        # [5] Browse tags
+        try:
+            tagResults = system.tag.browse("[default]", {"recursive": True}).getResults()
+            visibleTags = [str(t['fullPath']) for t in tagResults if not t['hasChildren']]
+        except:
+            visibleTags = []
+
+        # [6] Read recentActions (optional)
+        try:
+            recentActions = system.tag.readBlocking(["[Client]ControlPilot/RecentActions"])[0].value
+        except:
+            recentActions = ""
+
+        # [7] Build payload
         payloadDict = {
             "prompt": prompt,
-            "context": ""   # or pull from another component if you need dynamic context
+            "context": {
+                "windowName":    windowName,
+                "componentName": componentName,
+                "componentType": componentType,
+                "visibleTags":   visibleTags,
+                "recentActions": recentActions
+            }
         }
         jsonPayload = system.util.jsonEncode(payloadDict)
 
-        # 4) Open an HttpURLConnection
-        url  = URL("http://localhost:5000/generate")  # adjust host/port if needed
+        # [8] Send HTTP POST
+        url  = URL("http://localhost:5000/generate")
         conn = url.openConnection()
         conn.setRequestMethod("POST")
         conn.setDoOutput(True)
         conn.setRequestProperty("Content-Type", "application/json")
 
-        # 5) Write the JSON to the request body
         outStream = conn.getOutputStream()
         outStream.write(String(jsonPayload).getBytes("UTF-8"))
         outStream.flush()
         outStream.close()
 
-        # 6) Read the response back in
+        # [9] Read response and display
         reader = BufferedReader(InputStreamReader(conn.getInputStream(), "UTF-8"))
         responseLines = []
         line = reader.readLine()
@@ -44,10 +78,8 @@ else:
         reader.close()
 
         rawResponse = "".join(responseLines)
-        # 7) JSON-decode and display
         result = system.util.jsonDecode(rawResponse)
-        scriptText = result.get("response", "# No script returned")
-        previewBox.text = scriptText
+        previewBox.text = result.get("response", "# No script returned")
 
     except Exception as e:
         system.gui.errorBox("Error communicating with backend:\n\n" + str(e), "ControlPilot")
