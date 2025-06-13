@@ -59,7 +59,7 @@ Follow these rules exactly:
 - Use try/except blocks to handle tag-not-found or path errors gracefully, but avoid suppressing all errors silently.
 """
 
-    # 2) Live Project Context
+    # Live Project Context
     windowName    = dynamic_ctx.get("windowName", "")
     componentName = dynamic_ctx.get("componentName", "")
     componentType = dynamic_ctx.get("componentType", "")
@@ -76,10 +76,8 @@ Follow these rules exactly:
     ]
     dynamic_section = "\n".join(ctx_lines)
 
-    # 3) Combine static + dynamic context
     full_context = static_instructions + "\n\n" + dynamic_section
 
-    # 4) Call OpenAI
     try:
         resp = client.chat.completions.create(
             model="gpt-4o",

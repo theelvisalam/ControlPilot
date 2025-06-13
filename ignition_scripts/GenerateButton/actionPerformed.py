@@ -1,5 +1,3 @@
-# Ignition Vision Button – onActionPerformed event
-
 import system
 from java.lang import String
 from java.net import URL
